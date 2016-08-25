@@ -4,10 +4,11 @@
 #include <QMessageBox>
 
 
-QString DEFAULT_URL = "http://localhost/web/logdata";
+QString DEFAULT_URL = "http://172.18.142.180/logdata";
+QString DEFAULT_AUTH_URL = "http://172.18.142.180/login";
 QString DEFAULT_METHOD = "POST";
 QString DEFAULT_CONTENT_TYPE = "application/json";
-int DEFAULT_INTERVAL = 60;
+int DEFAULT_INTERVAL = 5;
 
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -15,6 +16,9 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    worker = new HttpRequestWorker(this);
+    connect(worker, SIGNAL(on_execution_finished(HttpRequestWorker*)), this, SLOT(handle_result(HttpRequestWorker*)));
 
     connect(&internalClock,SIGNAL(timeout()),this,SLOT(internalClockTick()));
 
@@ -35,7 +39,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->dateTimeEdit_clock->setDisplayFormat("dd/MM/yyyy hh:mm:ss");
 
+    ui->statusBar->showMessage("Stopped");
+
     ui->lineEdit_url->setText(DEFAULT_URL);
+    ui->lineEdit_authUrl->setText(DEFAULT_AUTH_URL);
     ui->comboBox_method->setCurrentText(DEFAULT_METHOD);
     ui->comboBo_contentType->setCurrentText(DEFAULT_CONTENT_TYPE);
     ui->spinBox_intervalo->setValue(DEFAULT_INTERVAL);
@@ -50,14 +57,20 @@ MainWindow::~MainWindow() {
 
 void MainWindow::on_pushButton_send_clicked() {
 
+
+
     if ( ui->tabWidget_runMode->currentIndex() == eDeviceMode) {
 
         if ( internalClock.isActive() ) { //Stopping
+            ui->statusBar->showMessage("Stopped");
             internalClock.stop();
             ui->pushButton_send->setText("Enviar");
             ui->groupBox_runMode->setEnabled(true);
         }
         else {  //Start ensayo
+            on_actionLimpiar_consola_triggered();
+            sendAuthrization();
+            ui->statusBar->showMessage("Running");
             internalClock.start(1000);
             ui->pushButton_send->setText("Detener");
             ui->groupBox_runMode->setDisabled(true);
@@ -90,17 +103,25 @@ void MainWindow::internalClockTick() {
         on_actionLimpiar_consola_triggered();
         counterTick = ui->spinBox_intervalo->value();
         QByteArray payload = generatePayload();
-        qDebug(payload);
+        //qDebug(payload);
 
         HttpRequestInput input(ui->lineEdit_url->text(), ui->comboBox_method->currentText());
         input.setContentType(ui->comboBo_contentType->currentText());
 
         input.setPayload(payload);
 
-        HttpRequestWorker *worker = new HttpRequestWorker(this);
-        connect(worker, SIGNAL(on_execution_finished(HttpRequestWorker*)), this, SLOT(handle_result(HttpRequestWorker*)));
         worker->execute(&input);
     }
+}
+
+void MainWindow::sendAuthrization() {
+    HttpRequestInput input(ui->lineEdit_authUrl->text(), "POST");
+    input.setContentType("application/x-www-form-urlencoded");
+
+    input.add_var("_username","device");
+    input.add_var("_password","INTI1957");
+
+    worker->execute(&input);
 }
 
 QByteArray MainWindow::generatePayload() {
@@ -158,6 +179,8 @@ void MainWindow::handle_result(HttpRequestWorker *worker) {
     ui->plainTextEdit_console->appendPlainText(worker->response);
     //QMessageBox::information(this, "", msg);
 }
+
+
 
 void MainWindow::on_pushButton_loadData_clicked()
 {

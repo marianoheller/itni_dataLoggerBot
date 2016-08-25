@@ -28,7 +28,7 @@ public:
 private:
     Ui::MainWindow *ui;
     QTimer internalClock;
-
+    HttpRequestWorker *worker;
 
 private slots:
     void on_pushButton_send_clicked();
@@ -37,6 +37,7 @@ private slots:
 
     void internalClockTick();
     QByteArray generatePayload();
+    void sendAuthrization();
 
     void on_pushButton_loadData_clicked();
     void on_actionLimpiar_consola_triggered();
